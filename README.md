@@ -123,6 +123,17 @@ yarn exec turbo link
 pnpm exec turbo link
 ```
 
+### Terminal User Interface (TUI)
+
+This Turborepo is configured with the Terminal User Interface (`"ui": "tui"` in `turbo.json`), which provides an interactive view of your tasks. When running turbo commands, you'll see a helpful interface with the following keybindings:
+
+- **↑ ↓** - Navigate and select tasks
+- **i** - Interact with a task
+- **u/d** - Scroll logs up/down
+- **U/D** - Page logs up/down
+- **t/b** - Jump to top/bottom of logs
+- **m** - Show more keybindings
+
 ## Useful Links
 
 Learn more about the power of Turborepo:
