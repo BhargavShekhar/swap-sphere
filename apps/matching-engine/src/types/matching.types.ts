@@ -22,6 +22,13 @@ export interface LanguageSimilarityResult {
   totalLanguages: number;
 }
 
+export interface LocationSimilarityResult {
+  score: number; // 0-1
+  distance: number | null; // Distance in kilometers
+  sameCity: boolean;
+  sameCountry: boolean;
+}
+
 export interface TrustScoreResult {
   score: number; // 0-1
   factors: {

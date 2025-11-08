@@ -100,8 +100,9 @@ class SemanticService {
       // Calculate cosine similarity
       const similarity = this.cosineSimilarity(embeddingA, embeddingB);
 
-      // Normalize to 0-1 range (cosine similarity is already -1 to 1, but typically 0-1)
-      const normalizedScore = Math.max(0, (similarity + 1) / 2);
+      // Cosine similarity is already in -1 to 1 range, but typically 0-1 for embeddings
+      // Normalize to ensure 0-1 range
+      const normalizedScore = Math.max(0, Math.min(1, similarity));
 
       return {
         score: normalizedScore,

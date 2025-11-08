@@ -9,128 +9,69 @@ The **Perfect Match Engine** is an intelligent skill-matching microservice that 
   - Language compatibility
   - Trust scores
 - **Semantic Search**: Uses transformer-based embeddings for intelligent skill matching
+- **MongoDB Integration**: Persistent storage with MongoDB Atlas
+- **JWT Authentication**: Secure user authentication
+- **Exchange Management**: Complete learning exchange lifecycle
+- **Trust Score System**: Automatic trust score updates based on reviews
 - **Modular Architecture**: Easy to extend and customize
 - **RESTful API**: Clean, well-documented endpoints
 
 ## Matching Algorithm
 
-The matching engine uses a weighted formula to calculate match scores:
+The matching engine uses a hybrid weighted formula to calculate match scores:
 
 ```
-Total Match Score = 
-  w1 * (semantic similarity of A's offer → B's want)
-+ w2 * (semantic similarity of B's offer → A's want)
-+ w3 * (language similarity)
-+ w4 * (trust score)
+Final Match Score = (w1 × SA→B) + (w2 × SB→A) + (w3 × Llocation) + (w4 × Llanguage) + (w5 × Ttrust)
 ```
+
+Where:
+- **SA→B**: Semantic similarity of A's offer → B's want
+- **SB→A**: Semantic similarity of B's offer → A's want
+- **Llocation**: Location similarity (geographic proximity)
+- **Llanguage**: Language similarity (communication compatibility)
+- **Ttrust**: Trust score (reliability)
 
 ### Default Weights
 
-- `w1`: 0.35 - Semantic similarity (A's offer → B's want)
-- `w2`: 0.35 - Semantic similarity (B's offer → A's want)
-- `w3`: 0.15 - Language similarity
-- `w4`: 0.15 - Trust score
+- `w1`: 0.30 - SA→B (Semantic similarity A's offer → B's want)
+- `w2`: 0.30 - SB→A (Semantic similarity B's offer → A's want)
+- `w3`: 0.15 - Llocation (Location proximity)
+- `w4`: 0.15 - Llanguage (Language compatibility)
+- `w5`: 0.10 - Ttrust (Trust/reliability)
 
 ## API Endpoints
 
+### Authentication
+
+- `POST /api/auth/signup` - Create new user account
+- `POST /api/auth/login` - Login user
+- `GET /api/auth/me` - Get current user
+
+### Profile
+
+- `POST /api/profile` - Create/update user profile (offer_skill, want_skill, skill_level)
+- `GET /api/profile` - Get current user profile
+
 ### Matching
 
-#### `POST /api/matching/find`
-Find matches for a user.
+- `POST /api/matching/find` - Find matches for a user
+- `POST /api/matching/score` - Calculate match score between two users
+- `GET /api/matching/health` - Health check
 
-**Request Body:**
-```json
-{
-  "userId": "user123",
-  "config": {
-    "weights": {
-      "w1": 0.35,
-      "w2": 0.35,
-      "w3": 0.15,
-      "w4": 0.15
-    },
-    "minMatchScore": 0.3,
-    "maxResults": 50
-  }
-}
-```
+### Exchange
 
-**Response:**
-```json
-{
-  "matches": [
-    {
-      "userA": { ... },
-      "userB": { ... },
-      "matchScore": {
-        "totalScore": 0.85,
-        "semanticScoreAtoB": 0.9,
-        "semanticScoreBtoA": 0.88,
-        "languageScore": 0.8,
-        "trustScore": 0.75,
-        "breakdown": { ... }
-      },
-      "matchedAt": "2024-01-01T00:00:00.000Z"
-    }
-  ],
-  "totalCandidates": 100,
-  "processingTime": 250
-}
-```
+- `POST /api/exchange/create` - Create a new exchange from a match
+- `POST /api/exchange/:exchangeId/accept` - Accept a pending exchange
+- `POST /api/exchange/:exchangeId/start` - Start an accepted exchange
+- `POST /api/exchange/:exchangeId/confirm` - Confirm completion
+- `POST /api/exchange/:exchangeId/review` - Submit review and rating
+- `GET /api/exchange` - Get all exchanges for current user
+- `GET /api/exchange/:exchangeId` - Get specific exchange
 
-#### `POST /api/matching/score`
-Calculate match score between two specific users.
+### Messages
 
-**Request Body:**
-```json
-{
-  "userIdA": "user123",
-  "userIdB": "user456",
-  "weights": { ... }
-}
-```
-
-### Users
-
-#### `POST /api/users`
-Create or update a user profile.
-
-**Request Body:**
-```json
-{
-  "id": "user123",
-  "username": "johndoe",
-  "email": "john@example.com",
-  "languages": ["en", "es"],
-  "offers": [
-    {
-      "id": "skill1",
-      "name": "JavaScript",
-      "description": "Advanced JavaScript programming",
-      "level": "expert",
-      "category": "programming"
-    }
-  ],
-  "wants": [
-    {
-      "id": "skill2",
-      "name": "Spanish",
-      "level": "beginner",
-      "category": "language"
-    }
-  ],
-  "trustScore": 0.85
-}
-```
-
-#### `GET /api/users/:id`
-Get user by ID.
-
-#### `GET /api/users`
-Get all users.
-
-#### `DELETE /api/users/:id`
-Delete a user.
+- `POST /api/message` - Send a message in an exchange
+- `GET /api/message/:exchangeId` - Get all messages for an exchange
 
 ## Development
 
@@ -138,12 +79,23 @@ Delete a user.
 
 - Node.js >= 18
 - pnpm
+- MongoDB Atlas account
 
 ### Installation
 
 ```bash
 cd apps/matching-engine
 pnpm install
+```
+
+### Environment Variables
+
+Create a `.env` file:
+
+```env
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority
+JWT_SECRET=your-secret-key-here
+MATCHING_ENGINE_PORT=8081
 ```
 
 ### Build
@@ -164,54 +116,28 @@ pnpm run start
 pnpm run dev
 ```
 
-## Environment Variables
-
-- `MATCHING_ENGINE_PORT` - Port to run the service on (default: 8081)
-
 ## Architecture
-
-The service is organized into modular components:
 
 ```
 src/
+├── config/          # Configuration (database, etc.)
+├── models/          # MongoDB models (User, Exchange, Message)
 ├── types/           # TypeScript types and interfaces
 ├── services/        # Business logic services
 │   ├── semantic.service.ts    # Semantic similarity calculations
-│   ├── language.service.ts    # Language compatibility
-│   └── trust.service.ts       # Trust score calculations
+│   ├── language.service.ts   # Language compatibility
+│   └── trust.service.ts      # Trust score calculations
 ├── core/            # Core matching engine
 │   └── matching.engine.ts    # Main matching algorithm
-├── repositories/    # Data access layer
-│   └── user.repository.ts    # User data management
+├── middleware/      # Express middleware (auth)
 └── routes/          # API routes
-    ├── matching.route.ts       # Matching endpoints
-    └── user.route.ts         # User management endpoints
+    ├── auth.route.ts         # Authentication endpoints
+    ├── profile.route.ts      # Profile management
+    ├── matching.route.ts     # Matching endpoints
+    ├── exchange.route.ts    # Exchange management
+    └── message.route.ts     # Chat messages
 ```
-
-## Extending the Service
-
-### Adding a Database
-
-Replace the `UserRepository` implementation with a database-backed version. The interface remains the same, so no changes are needed in other parts of the code.
-
-### Custom Matching Weights
-
-Adjust the weights in the matching config to prioritize different factors:
-
-```typescript
-const customWeights = {
-  w1: 0.4,  // More weight on semantic matching
-  w2: 0.4,
-  w3: 0.1,  // Less weight on language
-  w4: 0.1   // Less weight on trust
-};
-```
-
-### Custom Semantic Models
-
-The semantic service uses `@xenova/transformers` with the `Xenova/all-MiniLM-L6-v2` model. You can switch to a different model by modifying `semantic.service.ts`.
 
 ## License
 
 ISC
-

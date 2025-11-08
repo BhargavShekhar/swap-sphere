@@ -5,9 +5,9 @@
     "module": "nodenext",
     "target": "esnext",
     "lib": ["es2022"],
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
+    "sourceMap": false, // Disable in dev, enable in production builds
+    "declaration": false, // Only needed for libraries
+    "declarationMap": false, // Only needed for libraries
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "strict": true,

@@ -2,17 +2,22 @@
  * Core matching engine
  * Implements the hybrid formula-based matching algorithm
  * 
- * Total Match Score = w1 * (semantic similarity of A's offer → B's want)
- *                   + w2 * (semantic similarity of B's offer → A's want)
- *                   + w3 * (language similarity)
- *                   + w4 * (trust score)
+ * Final Match Score = (w1 × SA→B) + (w2 × SB→A) + (w3 × Llocation) + (w4 × Llanguage) + (w5 × Ttrust)
+ * 
+ * Where:
+ * - SA→B: Semantic similarity of A's offer → B's want
+ * - SB→A: Semantic similarity of B's offer → A's want
+ * - Llocation: Location similarity (geographic proximity)
+ * - Llanguage: Language similarity (communication compatibility)
+ * - Ttrust: Trust score (reliability)
  */
 
 import type { UserProfile, MatchResult, MatchScore, MatchingWeights } from '../types/user.types.js';
 import { DEFAULT_WEIGHTS } from '../types/user.types.js';
-import type { MatchingConfig, SemanticSimilarityResult, LanguageSimilarityResult, TrustScoreResult } from '../types/matching.types.js';
+import type { MatchingConfig, LanguageSimilarityResult, LocationSimilarityResult, TrustScoreResult } from '../types/matching.types.js';
 import { semanticService } from '../services/semantic.service.js';
 import { languageService } from '../services/language.service.js';
+import { locationService } from '../services/location.service.js';
 import { trustService } from '../services/trust.service.js';
 
 class MatchingEngine {
@@ -68,44 +73,53 @@ class MatchingEngine {
 
   /**
    * Calculate match score between two users using the hybrid formula
+   * Final Match Score = (w1 × SA→B) + (w2 × SB→A) + (w3 × Llocation) + (w4 × Llanguage) + (w5 × Ttrust)
    */
   async calculateMatchScore(
     userA: UserProfile,
     userB: UserProfile,
     weights: MatchingWeights = DEFAULT_WEIGHTS
   ): Promise<MatchScore> {
-    // 1. Semantic similarity: A's offer → B's want
+    // 1. SA→B: Semantic similarity A's offer → B's want
     const semanticScoreAtoB = await this.calculateSemanticScoreAtoB(
       userA,
       userB
     );
 
-    // 2. Semantic similarity: B's offer → A's want
+    // 2. SB→A: Semantic similarity B's offer → A's want
     const semanticScoreBtoA = await this.calculateSemanticScoreBtoA(
       userA,
       userB
     );
 
-    // 3. Language similarity
+    // 3. Llocation: Location similarity
+    const locationResult = locationService.calculateLocationSimilarity(
+      userA,
+      userB
+    );
+
+    // 4. Llanguage: Language similarity
     const languageResult = languageService.calculateLanguageSimilarity(
       userA,
       userB
     );
 
-    // 4. Trust score
+    // 5. Ttrust: Trust score
     const trustResult = trustService.calculateTrustScore(userA, userB);
 
-    // Calculate weighted total score
+    // Calculate weighted total score according to formula
     const totalScore =
-      weights.w1 * semanticScoreAtoB +
-      weights.w2 * semanticScoreBtoA +
-      weights.w3 * languageResult.score +
-      weights.w4 * trustResult.score;
+      weights.w1 * semanticScoreAtoB +      // w1 × SA→B
+      weights.w2 * semanticScoreBtoA +      // w2 × SB→A
+      weights.w3 * locationResult.score +   // w3 × Llocation
+      weights.w4 * languageResult.score +   // w4 × Llanguage
+      weights.w5 * trustResult.score;       // w5 × Ttrust
 
     return {
       totalScore: Math.max(0, Math.min(1, totalScore)), // Clamp to 0-1
       semanticScoreAtoB,
       semanticScoreBtoA,
+      locationScore: locationResult.score,
       languageScore: languageResult.score,
       trustScore: trustResult.score,
       breakdown: {
@@ -113,6 +127,7 @@ class MatchingEngine {
         w2: weights.w2,
         w3: weights.w3,
         w4: weights.w4,
+        w5: weights.w5,
       },
     };
   }

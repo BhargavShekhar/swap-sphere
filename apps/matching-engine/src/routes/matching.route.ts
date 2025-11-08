@@ -4,9 +4,9 @@
 
 import { Router, type Router as ExpressRouter } from 'express';
 import { matchingEngine } from '../core/matching.engine.js';
-import { userRepository } from '../repositories/user.repository.js';
 import type { MatchingRequest, MatchingResponse, MatchingConfig } from '../types/matching.types.js';
-import { DEFAULT_WEIGHTS } from '../types/user.types.js';
+import { DEFAULT_WEIGHTS, type UserProfile } from '../types/user.types.js';
+import User from '../models/User.model.js';
 
 const router: ExpressRouter = Router();
 
@@ -26,9 +26,9 @@ router.post('/find', async (req, res) => {
       return;
     }
 
-    // Get user
-    const user = await userRepository.getById(userId);
-    if (!user) {
+    // Get user from MongoDB
+    const dbUser = await User.findById(userId).select('-password');
+    if (!dbUser) {
       res.status(404).json({ 
         error: 'User not found',
         message: `User with id ${userId} does not exist`
@@ -36,8 +36,14 @@ router.post('/find', async (req, res) => {
       return;
     }
 
-    // Get all candidates
-    const candidates = await userRepository.getAllExcept(userId);
+    // Convert MongoDB user to UserProfile format
+    const user: UserProfile = convertUserToProfile(dbUser);
+
+    // Get all candidates from MongoDB
+    const dbCandidates = await User.find({ _id: { $ne: userId } })
+      .select('-password');
+    
+    const candidates: UserProfile[] = dbCandidates.map(convertUserToProfile);
 
     if (candidates.length === 0) {
       res.json({
@@ -93,18 +99,22 @@ router.post('/score', async (req, res) => {
       return;
     }
 
-    const userA = await userRepository.getById(userIdA);
-    const userB = await userRepository.getById(userIdB);
+    // Get users from MongoDB
+    const dbUserA = await User.findById(userIdA).select('-password');
+    const dbUserB = await User.findById(userIdB).select('-password');
 
-    if (!userA) {
+    if (!dbUserA) {
       res.status(404).json({ error: `User ${userIdA} not found` });
       return;
     }
 
-    if (!userB) {
+    if (!dbUserB) {
       res.status(404).json({ error: `User ${userIdB} not found` });
       return;
     }
+
+    const userA = convertUserToProfile(dbUserA);
+    const userB = convertUserToProfile(dbUserB);
 
     const matchWeights = weights ?? DEFAULT_WEIGHTS;
     const matchScore = await matchingEngine.calculateMatchScore(
@@ -138,6 +148,62 @@ router.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+/**
+ * Convert MongoDB User document to UserProfile format
+ */
+function convertUserToProfile(dbUser: any): UserProfile {
+  // Convert single offer/want to arrays for matching engine
+  const offers = dbUser.offer_skill ? [{
+    id: 'offer-1',
+    name: dbUser.offer_skill,
+    level: (dbUser.skill_level ? getSkillLevel(dbUser.skill_level) : 'intermediate') as 'beginner' | 'intermediate' | 'advanced' | 'expert',
+  }] : [];
+
+  const wants = dbUser.want_skill ? [{
+    id: 'want-1',
+    name: dbUser.want_skill,
+    level: 'beginner' as const, // Default for want
+  }] : [];
+
+  // Extract location if available
+  const location = dbUser.location ? {
+    city: dbUser.location.city,
+    country: dbUser.location.country,
+    latitude: dbUser.location.latitude,
+    longitude: dbUser.location.longitude,
+    timezone: dbUser.location.timezone,
+  } : undefined;
+
+  const profile: UserProfile = {
+    id: String(dbUser._id),
+    username: dbUser.name,
+    email: dbUser.email,
+    languages: dbUser.languages || ['en'], // Use user's languages or default to English
+    offers,
+    wants,
+    trustScore: dbUser.trustScore || 0.5,
+    createdAt: dbUser.createdAt,
+    updatedAt: dbUser.updatedAt,
+  };
+
+  // Add location only if it exists
+  if (location) {
+    profile.location = location;
+  }
+
+  return profile;
+}
+
+/**
+ * Convert numeric skill level (1-10) to skill level category
+ */
+function getSkillLevel(level: number): 'beginner' | 'intermediate' | 'advanced' | 'expert' {
+  if (level <= 3) return 'beginner';
+  if (level <= 6) return 'intermediate';
+  if (level <= 8) return 'advanced';
+  return 'expert';
+}
 
 export default router;
 
