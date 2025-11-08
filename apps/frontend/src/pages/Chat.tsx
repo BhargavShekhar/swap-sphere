@@ -7,7 +7,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { sendMessage, getMessages, type Message } from '../services/message.api';
-import { getExchange, createExchange, getExchanges, type Exchange } from '../services/exchange.api';
+import { 
+  getExchange, 
+  createExchange, 
+  getExchanges, 
+  confirmExchangeCompletion,
+  type Exchange 
+} from '../services/exchange.api';
+import { confirmCompletion as confirmReviewCompletion } from '../services/review.api';
+import { DisplayName } from '../components/DisplayName';
+import { UserAvatar } from '../components/UserAvatar';
 
 export function Chat() {
   const [searchParams] = useSearchParams();
@@ -24,8 +33,15 @@ export function Chat() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingCompletion, setConfirmingCompletion] = useState(false);
+  const [completionStatus, setCompletionStatus] = useState<{
+    userConfirmed: boolean;
+    partnerConfirmed: boolean;
+    bothConfirmed: boolean;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const exchangePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -35,6 +51,20 @@ export function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const updateCompletionStatus = (ex: Exchange) => {
+    if (!user) return;
+    
+    const isUserA = ex.userA._id === user.id;
+    const userConfirmed = isUserA ? ex.userAConfirmed : ex.userBConfirmed;
+    const partnerConfirmed = isUserA ? ex.userBConfirmed : ex.userAConfirmed;
+    
+    setCompletionStatus({
+      userConfirmed,
+      partnerConfirmed,
+      bothConfirmed: ex.userAConfirmed && ex.userBConfirmed,
+    });
+  };
 
   // Initialize exchange and load messages
   useEffect(() => {
@@ -118,6 +148,7 @@ export function Chat() {
         }
 
         setExchange(currentExchange);
+        updateCompletionStatus(currentExchange);
 
         // Load initial messages
         await loadMessages(currentExchange._id);
@@ -153,6 +184,29 @@ export function Chat() {
     };
   }, [exchange]);
 
+  // Poll for exchange status updates (completion status)
+  useEffect(() => {
+    if (!exchange || !user) return;
+
+    // Poll every 3 seconds for exchange status updates
+    exchangePollingIntervalRef.current = setInterval(async () => {
+      try {
+        const response = await getExchange(exchange._id);
+        setExchange(response.exchange);
+        updateCompletionStatus(response.exchange);
+      } catch (err) {
+        // Silently fail for polling
+        console.error('Error polling exchange status:', err);
+      }
+    }, 3000);
+
+    return () => {
+      if (exchangePollingIntervalRef.current) {
+        clearInterval(exchangePollingIntervalRef.current);
+      }
+    };
+  }, [exchange, user]);
+
   const loadMessages = async (exId: string, silent = false) => {
     try {
       const response = await getMessages(exId);
@@ -162,6 +216,38 @@ export function Chat() {
         console.error('Error loading messages:', err);
         setError('Failed to load messages');
       }
+    }
+  };
+
+  const handleConfirmCompletion = async () => {
+    if (!exchange || !user || confirmingCompletion) return;
+
+    try {
+      setConfirmingCompletion(true);
+      setError(null);
+
+      // Confirm via matching-engine endpoint
+      const response = await confirmExchangeCompletion(exchange._id);
+      setExchange(response.exchange);
+      updateCompletionStatus(response.exchange);
+
+      // Also confirm via review API (for consistency)
+      try {
+        await confirmReviewCompletion(exchange._id, user.id);
+      } catch (err) {
+        // Review API confirmation is optional, don't fail if it errors
+        console.log('Review API confirmation optional:', err);
+      }
+
+      if (response.bothConfirmed) {
+        // Show success message
+        setError(null);
+      }
+    } catch (err: any) {
+      console.error('Error confirming completion:', err);
+      setError(err.response?.data?.error || 'Failed to confirm completion. Please try again.');
+    } finally {
+      setConfirmingCompletion(false);
     }
   };
 
@@ -231,21 +317,94 @@ export function Chat() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
       {/* Header */}
       <div className="bg-white shadow-md px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/matching')}
-              className="px-3 py-2 text-gray-600 hover:text-gray-900 font-medium"
-            >
-              ← Back
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Chat with {otherUser.name}</h1>
-              <p className="text-sm text-gray-600">
-                {exchange.skillA} ↔ {exchange.skillB}
-              </p>
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/matching')}
+                className="px-3 py-2 text-gray-600 hover:text-gray-900 font-medium"
+              >
+                ← Back
+              </button>
+              <div className="flex items-center gap-3">
+                <UserAvatar user={otherUser} size="md" />
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">
+                    Chat with <DisplayName user={otherUser} />
+                  </h1>
+                  <p className="text-sm text-gray-600">
+                    {exchange.skillA} ↔ {exchange.skillB}
+                  </p>
+                </div>
+              </div>
+            </div>
+            {/* Session Status Badge */}
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                exchange.status === 'completed' 
+                  ? 'bg-green-100 text-green-800'
+                  : exchange.status === 'in_progress'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                {exchange.status === 'completed' ? 'Completed' : 
+                 exchange.status === 'in_progress' ? 'In Progress' : 
+                 exchange.status}
+              </span>
             </div>
           </div>
+          
+          {/* Completion Status Banner */}
+          {exchange.status === 'in_progress' && completionStatus && (
+            <div className={`mt-3 p-3 rounded-lg border ${
+              completionStatus.bothConfirmed
+                ? 'bg-green-50 border-green-200'
+                : completionStatus.userConfirmed
+                ? 'bg-yellow-50 border-yellow-200'
+                : 'bg-blue-50 border-blue-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {completionStatus.bothConfirmed ? (
+                    <>
+                      <span className="text-green-600 text-lg">✅</span>
+                      <p className="text-sm font-medium text-green-800">
+                        Session completed! Both parties have confirmed.
+                      </p>
+                    </>
+                  ) : completionStatus.userConfirmed ? (
+                    <>
+                      <span className="text-yellow-600 text-lg">⏳</span>
+                      <p className="text-sm font-medium text-yellow-800">
+                        Waiting for <DisplayName user={otherUser} /> to confirm session completion...
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-blue-600 text-lg">💬</span>
+                      <p className="text-sm font-medium text-blue-800">
+                        Session is in progress. Click below to confirm when finished.
+                      </p>
+                    </>
+                  )}
+                </div>
+                {!completionStatus.userConfirmed && (
+                  <button
+                    onClick={handleConfirmCompletion}
+                    disabled={confirmingCompletion}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold text-sm whitespace-nowrap"
+                  >
+                    {confirmingCompletion ? 'Confirming...' : 'Confirm Completion'}
+                  </button>
+                )}
+                {completionStatus.userConfirmed && !completionStatus.bothConfirmed && (
+                  <span className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold text-sm whitespace-nowrap">
+                    ✓ You Confirmed
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -282,7 +441,7 @@ export function Chat() {
                   >
                     {!isOwnMessage && (
                       <p className="text-xs font-semibold mb-1 opacity-75">
-                        {message.senderId.name}
+                        <DisplayName user={message.senderId} />
                       </p>
                     )}
                     <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>

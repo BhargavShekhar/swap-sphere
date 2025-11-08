@@ -119,7 +119,7 @@ const ExchangeSchema = new Schema<IExchange>(
 // Index for faster queries
 ExchangeSchema.index({ userA: 1, status: 1 });
 ExchangeSchema.index({ userB: 1, status: 1 });
-ExchangeSchema.index({ roomId: 1 });
+// Note: roomId already has unique: true which creates an index automatically
 
 // Export model
 const Exchange: Model<IExchange> = mongoose.models.Exchange || mongoose.model<IExchange>('Exchange', ExchangeSchema);

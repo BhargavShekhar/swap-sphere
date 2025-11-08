@@ -6,6 +6,7 @@
 import { Router, type Router as ExpressRouter, type Response } from 'express';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware.js';
 import User from '../models/User.model.js';
+import { serializeUser } from '../utils/user.serializer.js';
 
 const router: ExpressRouter = Router();
 
@@ -41,6 +42,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     // Update user profile
     console.log('Attempting to update user in MongoDB...');
+    // Don't use .select('-password') with findByIdAndUpdate when using inclusion projection elsewhere
+    // Password is already excluded by schema (select: false), so just query normally
     const user = await User.findByIdAndUpdate(
       userId,
       {
@@ -53,7 +56,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         runValidators: true,
         upsert: false, // Don't create if doesn't exist
       }
-    ).select('-password');
+    );
     
     // Force connection check
     const mongoose = await import('mongoose');
@@ -75,15 +78,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       skill_level: user.skill_level,
     });
 
+    // For own user, include email (includePII = true)
     res.json({
-      user: {
-        id: String(user._id),
-        name: user.name,
-        email: user.email,
-        offer_skill: user.offer_skill,
-        want_skill: user.want_skill,
-        skill_level: user.skill_level,
-      },
+      user: serializeUser(user, true),
     });
   } catch (error: any) {
     console.error('❌ Profile update error details:', {
@@ -112,22 +109,17 @@ router.post('/', async (req: AuthRequest, res: Response) => {
  */
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const user = await User.findById(req.user!.id).select('-password');
+    // Password is already excluded by schema (select: false), so just query normally
+    const user = await User.findById(req.user!.id);
 
     if (!user) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
 
+    // For own user, include email (includePII = true)
     res.json({
-      user: {
-        id: String(user._id),
-        name: user.name,
-        email: user.email,
-        offer_skill: user.offer_skill,
-        want_skill: user.want_skill,
-        skill_level: user.skill_level,
-      },
+      user: serializeUser(user, true),
     });
   } catch (error) {
     console.error('Get profile error:', error);

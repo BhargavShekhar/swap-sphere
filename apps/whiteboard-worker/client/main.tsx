@@ -16,8 +16,11 @@ const router = createBrowserRouter([
 	},
 ])
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
+
+root.render(
 	<React.StrictMode>
+		{/* @ts-expect-error - React Router type compatibility issue with React 18 types */}
 		<RouterProvider router={router} />
 	</React.StrictMode>
 )

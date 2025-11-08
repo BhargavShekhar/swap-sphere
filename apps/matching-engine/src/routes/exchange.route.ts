@@ -9,6 +9,7 @@ import Exchange from '../models/Exchange.model.js';
 import User from '../models/User.model.js';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
+import { serializeUser } from '../utils/user.serializer.js';
 
 const router: ExpressRouter = Router();
 
@@ -76,10 +77,18 @@ router.post('/create', authenticate, async (req, res) => {
     });
 
     await exchange.save();
-    await exchange.populate('userA userB', 'name email');
+    await exchange.populate('userA userB', 'name email isAnonymous anonymousName anonymousAvatar');
 
     console.log('Exchange created successfully:', exchange._id);
-    res.status(201).json({ exchange });
+    
+    // Serialize users in exchange
+    const serializedExchange = {
+      ...exchange.toObject(),
+      userA: serializeUser(exchange.userA, false),
+      userB: serializeUser(exchange.userB, false),
+    };
+    
+    res.status(201).json({ exchange: serializedExchange });
   } catch (error: any) {
     console.error('Error creating exchange:', error);
     console.error('Error stack:', error.stack);
@@ -117,9 +126,16 @@ router.post('/:exchangeId/accept', authenticate, async (req, res) => {
     exchange.status = 'accepted';
     exchange.startedAt = new Date();
     await exchange.save();
-    await exchange.populate('userA userB', 'name email');
+    await exchange.populate('userA userB', 'name email isAnonymous anonymousName anonymousAvatar');
 
-    res.json({ exchange });
+    // Serialize users in exchange
+    const serializedExchange = {
+      ...exchange.toObject(),
+      userA: serializeUser(exchange.userA, false),
+      userB: serializeUser(exchange.userB, false),
+    };
+
+    res.json({ exchange: serializedExchange });
   } catch (error: any) {
     console.error('Error accepting exchange:', error);
     res.status(500).json({ error: 'Failed to accept exchange', message: error.message });
@@ -157,9 +173,16 @@ router.post('/:exchangeId/start', authenticate, async (req, res) => {
       exchange.startedAt = new Date();
     }
     await exchange.save();
-    await exchange.populate('userA userB', 'name email');
+    await exchange.populate('userA userB', 'name email isAnonymous anonymousName anonymousAvatar');
 
-    res.json({ exchange });
+    // Serialize users in exchange
+    const serializedExchange = {
+      ...exchange.toObject(),
+      userA: serializeUser(exchange.userA, false),
+      userB: serializeUser(exchange.userB, false),
+    };
+
+    res.json({ exchange: serializedExchange });
   } catch (error: any) {
     console.error('Error starting exchange:', error);
     res.status(500).json({ error: 'Failed to start exchange', message: error.message });
@@ -209,10 +232,17 @@ router.post('/:exchangeId/confirm', authenticate, async (req, res) => {
     }
 
     await exchange.save();
-    await exchange.populate('userA userB', 'name email');
+    await exchange.populate('userA userB', 'name email isAnonymous anonymousName anonymousAvatar');
+
+    // Serialize users in exchange
+    const serializedExchange = {
+      ...exchange.toObject(),
+      userA: serializeUser(exchange.userA, false),
+      userB: serializeUser(exchange.userB, false),
+    };
 
     res.json({ 
-      exchange,
+      exchange: serializedExchange,
       bothConfirmed: exchange.userAConfirmed && exchange.userBConfirmed,
     });
   } catch (error: any) {
@@ -278,8 +308,16 @@ router.post('/:exchangeId/review', authenticate, async (req, res) => {
     // Update trust scores based on reviews
     await updateTrustScores(exchange);
 
-    await exchange.populate('userA userB', 'name email');
-    res.json({ exchange });
+    await exchange.populate('userA userB', 'name email isAnonymous anonymousName anonymousAvatar');
+    
+    // Serialize users in exchange
+    const serializedExchange = {
+      ...exchange.toObject(),
+      userA: serializeUser(exchange.userA, false),
+      userB: serializeUser(exchange.userB, false),
+    };
+    
+    res.json({ exchange: serializedExchange });
   } catch (error: any) {
     console.error('Error submitting review:', error);
     res.status(500).json({ error: 'Failed to submit review', message: error.message });
@@ -328,10 +366,17 @@ router.get('/', authenticate, async (req, res) => {
     const exchanges = await Exchange.find({
       $or: [{ userA: userId }, { userB: userId }],
     })
-      .populate('userA userB', 'name email')
+      .populate('userA userB', 'name email isAnonymous anonymousName anonymousAvatar')
       .sort({ createdAt: -1 });
 
-    res.json({ exchanges });
+    // Serialize users in all exchanges
+    const serializedExchanges = exchanges.map(exchange => ({
+      ...exchange.toObject(),
+      userA: serializeUser(exchange.userA, false),
+      userB: serializeUser(exchange.userB, false),
+    }));
+
+    res.json({ exchanges: serializedExchanges });
   } catch (error: any) {
     console.error('Error fetching exchanges:', error);
     res.status(500).json({ error: 'Failed to fetch exchanges', message: error.message });
@@ -347,7 +392,7 @@ router.get('/:exchangeId', authenticate, async (req, res) => {
     const userId = String((req as any).user.id);
     const { exchangeId } = req.params;
 
-    const exchange = await Exchange.findById(exchangeId).populate('userA userB', 'name email');
+    const exchange = await Exchange.findById(exchangeId).populate('userA userB', 'name email isAnonymous anonymousName anonymousAvatar');
 
     if (!exchange) {
       res.status(404).json({ error: 'Exchange not found' });
@@ -359,7 +404,14 @@ router.get('/:exchangeId', authenticate, async (req, res) => {
       return;
     }
 
-    res.json({ exchange });
+    // Serialize users in exchange
+    const serializedExchange = {
+      ...exchange.toObject(),
+      userA: serializeUser(exchange.userA, false),
+      userB: serializeUser(exchange.userB, false),
+    };
+
+    res.json({ exchange: serializedExchange });
   } catch (error: any) {
     console.error('Error fetching exchange:', error);
     res.status(500).json({ error: 'Failed to fetch exchange', message: error.message });

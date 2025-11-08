@@ -15,7 +15,11 @@ export interface Message {
   senderId: {
     _id: string;
     name: string;
-    email: string;
+    email?: string;
+    avatar?: string;
+    isAnonymous?: boolean;
+    anonymousName?: string;
+    anonymousAvatar?: string;
   };
   content: string;
   createdAt: string;

@@ -7,6 +7,7 @@ import { MatchingDashboard } from "./pages/MatchingDashboard"
 import { Login } from "./pages/Login"
 import { Signup } from "./pages/Signup"
 import { Chat } from "./pages/Chat"
+import { Profile } from "./pages/Profile"
 
 function App() {
 
@@ -20,6 +21,7 @@ function App() {
         <Route path="/white-board" element={<WhiteBoard />} />
         <Route path="/matching" element={<MatchingDashboard />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </AuthProvider>
   )

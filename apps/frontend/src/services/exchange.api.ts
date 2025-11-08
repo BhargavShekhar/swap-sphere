@@ -14,8 +14,24 @@ const TOKEN_API_BASE = `${BACKEND_URL}/api/token`;
 
 export interface Exchange {
   _id: string;
-  userA: { _id: string; name: string; email: string };
-  userB: { _id: string; name: string; email: string };
+  userA: { 
+    _id: string; 
+    name: string; 
+    email?: string;
+    avatar?: string;
+    isAnonymous?: boolean;
+    anonymousName?: string;
+    anonymousAvatar?: string;
+  };
+  userB: { 
+    _id: string; 
+    name: string; 
+    email?: string;
+    avatar?: string;
+    isAnonymous?: boolean;
+    anonymousName?: string;
+    anonymousAvatar?: string;
+  };
   skillA: string;
   skillB: string;
   status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
@@ -132,6 +148,25 @@ export async function getLiveKitToken(
     username: participantName,
     room,
   });
+  return response.data;
+}
+
+/**
+ * Confirm session completion
+ */
+export async function confirmExchangeCompletion(
+  exchangeId: string
+): Promise<{ exchange: Exchange; bothConfirmed: boolean }> {
+  const token = getToken();
+  const response = await axios.post(
+    `${EXCHANGE_API_BASE}/${exchangeId}/confirm`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
   return response.data;
 }
 

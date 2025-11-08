@@ -33,7 +33,11 @@ export interface Location {
 export interface UserProfile {
   id: string;
   username: string;
-  email: string;
+  email?: string; // Optional - not included when anonymous
+  avatar?: string;
+  isAnonymous?: boolean;
+  anonymousName?: string;
+  anonymousAvatar?: string;
   languages: string[];
   location?: Location;
   offers: Skill[];
@@ -103,11 +107,26 @@ export const matchingApi = {
     userId: string,
     config?: MatchingConfig
   ): Promise<MatchingResponse> {
-    const response = await api.post<MatchingResponse>('/api/matching/find', {
-      userId,
-      config,
-    });
-    return response.data;
+    console.log('[MATCHING API] Calling POST /api/matching/find');
+    console.log('[MATCHING API] Base URL:', MATCHING_ENGINE_URL);
+    console.log('[MATCHING API] Request body:', { userId, config });
+    
+    try {
+      const response = await api.post<MatchingResponse>('/api/matching/find', {
+        userId,
+        config,
+      });
+      
+      console.log('[MATCHING API] Response status:', response.status);
+      console.log('[MATCHING API] Response data:', response.data);
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('[MATCHING API] Request failed:', error);
+      console.error('[MATCHING API] Error response:', error.response?.data);
+      console.error('[MATCHING API] Error status:', error.response?.status);
+      throw error;
+    }
   },
 
   /**

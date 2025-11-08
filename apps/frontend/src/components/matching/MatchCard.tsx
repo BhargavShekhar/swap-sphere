@@ -4,15 +4,17 @@
  */
 
 import type { MatchResult } from '../../services/matching.api';
+import { DisplayName } from '../DisplayName';
+import { UserAvatar } from '../UserAvatar';
 
 interface MatchCardProps {
   match: MatchResult;
   currentUserId: string;
-  onViewDetails?: (match: MatchResult) => void;
   onStartCollaboration?: (match: MatchResult) => void;
+  onLeaveReview?: (match: MatchResult) => void;
 }
 
-export function MatchCard({ match, currentUserId, onViewDetails, onStartCollaboration }: MatchCardProps) {
+export function MatchCard({ match, currentUserId, onStartCollaboration, onLeaveReview }: MatchCardProps) {
   const matchedUser = match.userA.id === currentUserId ? match.userB : match.userA;
   const score = match.matchScore.totalScore;
 
@@ -33,9 +35,16 @@ export function MatchCard({ match, currentUserId, onViewDetails, onStartCollabor
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-xl font-bold text-gray-900">{matchedUser.username}</h3>
-          <p className="text-sm text-gray-600">{matchedUser.email}</p>
+        <div className="flex items-center gap-3 flex-1">
+          <UserAvatar user={matchedUser} size="md" />
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">
+              <DisplayName user={matchedUser} />
+            </h3>
+            {matchedUser.email && (
+              <p className="text-sm text-gray-600">{matchedUser.email}</p>
+            )}
+          </div>
         </div>
         <div className="text-right">
           <div className={`inline-block px-4 py-2 rounded-full text-white font-bold ${getScoreColor(score)}`}>
@@ -119,14 +128,6 @@ export function MatchCard({ match, currentUserId, onViewDetails, onStartCollabor
       </div>
 
       <div className="flex gap-2 mt-4">
-        {onViewDetails && (
-          <button
-            onClick={() => onViewDetails(match)}
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-          >
-            View Details
-          </button>
-        )}
         <button
           onClick={() => {
             if (onStartCollaboration) {
@@ -137,6 +138,14 @@ export function MatchCard({ match, currentUserId, onViewDetails, onStartCollabor
         >
           Start Collaboration
         </button>
+        {onLeaveReview && (
+          <button
+            onClick={() => onLeaveReview(match)}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-semibold"
+          >
+            Leave Review
+          </button>
+        )}
       </div>
     </div>
   );

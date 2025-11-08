@@ -52,7 +52,11 @@ api.interceptors.response.use(
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string; // Optional - not included when anonymous
+  avatar?: string;
+  isAnonymous?: boolean;
+  anonymousName?: string;
+  anonymousAvatar?: string;
   offer_skill?: string;
   want_skill?: string;
   skill_level?: number;

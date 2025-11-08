@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 export function OfferWantProfile() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -15,7 +14,6 @@ export function OfferWantProfile() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { updateProfile, user } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async () => {
     setError(null);

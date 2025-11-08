@@ -12,8 +12,8 @@ interface MatchResultsProps {
   currentUserId: string;
   totalCandidates?: number;
   processingTime?: number;
-  onViewDetails?: (match: MatchResult) => void;
   onStartCollaboration?: (match: MatchResult) => void;
+  onLeaveReview?: (match: MatchResult) => void;
 }
 
 export function MatchResults({
@@ -21,8 +21,8 @@ export function MatchResults({
   currentUserId,
   totalCandidates,
   processingTime,
-  onViewDetails,
   onStartCollaboration,
+  onLeaveReview,
 }: MatchResultsProps) {
   const [sortBy, setSortBy] = useState<'score' | 'time'>('score');
   const [filterMin, setFilterMin] = useState(0);
@@ -106,8 +106,8 @@ export function MatchResults({
               key={`${match.userA.id}-${match.userB.id}-${index}`}
               match={match}
               currentUserId={currentUserId}
-              onViewDetails={onViewDetails}
               onStartCollaboration={onStartCollaboration}
+              onLeaveReview={onLeaveReview}
             />
           ))}
         </div>

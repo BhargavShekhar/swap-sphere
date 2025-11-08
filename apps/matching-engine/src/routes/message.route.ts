@@ -7,6 +7,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { authenticate } from '../middleware/auth.middleware.js';
 import Message from '../models/Message.model.js';
 import Exchange from '../models/Exchange.model.js';
+import { serializeUser } from '../utils/user.serializer.js';
 
 const router: ExpressRouter = Router();
 
@@ -44,9 +45,15 @@ router.post('/', authenticate, async (req, res) => {
     });
 
     await message.save();
-    await message.populate('senderId', 'name email');
+    await message.populate('senderId', 'name email isAnonymous anonymousName anonymousAvatar');
 
-    res.status(201).json({ message });
+    // Serialize sender
+    const serializedMessage = {
+      ...message.toObject(),
+      senderId: serializeUser(message.senderId, false),
+    };
+
+    res.status(201).json({ message: serializedMessage });
   } catch (error: any) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message', message: error.message });
@@ -76,10 +83,16 @@ router.get('/:exchangeId', authenticate, async (req, res) => {
 
     // Get messages
     const messages = await Message.find({ exchangeId })
-      .populate('senderId', 'name email')
+      .populate('senderId', 'name email isAnonymous anonymousName anonymousAvatar')
       .sort({ createdAt: 1 }); // Oldest first
 
-    res.json({ messages });
+    // Serialize all senders
+    const serializedMessages = messages.map(message => ({
+      ...message.toObject(),
+      senderId: serializeUser(message.senderId, false),
+    }));
+
+    res.json({ messages: serializedMessages });
   } catch (error: any) {
     console.error('Error fetching messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages', message: error.message });

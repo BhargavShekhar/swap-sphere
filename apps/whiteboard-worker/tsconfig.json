@@ -15,7 +15,9 @@
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true,
-		"types": ["vite/client", "./worker-configuration.d.ts"]
+		"types": ["vite/client", "./worker-configuration.d.ts"],
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true
 	},
 	"include": ["client", "worker", "vite.config.ts"]
 }

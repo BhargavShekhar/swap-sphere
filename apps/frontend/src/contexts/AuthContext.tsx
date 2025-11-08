@@ -5,6 +5,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { authApi, profileApi, type User, type SignupData, type LoginData, type ProfileData } from '../services/auth.api';
+import { privacyApi } from '../services/privacy.api';
 
 interface AuthContextType {
   user: User | null;
@@ -15,6 +16,7 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (data: ProfileData) => Promise<void>;
   refreshUser: () => Promise<void>;
+  toggleAnonymous: () => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,6 +84,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleAnonymous = async () => {
+    try {
+      const response = await privacyApi.toggleAnonymous();
+      // Refresh user to get updated anonymous state
+      await refreshUser();
+      return response;
+    } catch (error) {
+      console.error('Error toggling anonymous mode:', error);
+      throw error;
+    }
+  };
+
   const value: AuthContextType = {
     user,
     loading,
@@ -91,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     updateProfile,
     refreshUser,
+    toggleAnonymous,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

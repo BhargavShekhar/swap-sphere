@@ -18,7 +18,6 @@ const MessageSchema = new Schema<IMessage>(
       type: Schema.Types.ObjectId,
       ref: 'Exchange',
       required: true,
-      index: true,
     },
     senderId: {
       type: Schema.Types.ObjectId,

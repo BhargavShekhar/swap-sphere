@@ -14,6 +14,9 @@ export interface IUser extends Document {
   want_skill?: string;
   skill_level?: number; // 1-10
   trustScore: number; // 0-1, default 0.5 for new users
+  isAnonymous: boolean; // Privacy mode flag
+  anonymousName?: string; // Pseudonym when anonymous
+  anonymousAvatar?: string; // Default avatar URL when anonymous
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -58,6 +61,19 @@ const UserSchema = new Schema<IUser>(
       default: 0.5, // Start with neutral trust score
       min: 0,
       max: 1,
+    },
+    isAnonymous: {
+      type: Boolean,
+      default: false,
+    },
+    anonymousName: {
+      type: String,
+      trim: true,
+    },
+    anonymousAvatar: {
+      type: String,
+      trim: true,
+      default: '/default-avatar.png', // Default anonymous avatar
     },
   },
   {

@@ -37,7 +37,8 @@ export const authenticate = async (
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
 
     // Get user from database
-    const user = await User.findById(decoded.userId).select('-password');
+    // Password is already excluded by schema (select: false), so just query normally
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       res.status(401).json({ error: 'User not found' });

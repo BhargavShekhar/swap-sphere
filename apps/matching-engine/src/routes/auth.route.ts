@@ -7,6 +7,7 @@ import { Router, type Router as ExpressRouter, type Request, type Response } fro
 import jwt from 'jsonwebtoken';
 import User from '../models/User.model.js';
 import { JWT_SECRET } from '../middleware/auth.middleware.js';
+import { serializeUser } from '../utils/user.serializer.js';
 
 const router: ExpressRouter = Router();
 
@@ -93,16 +94,10 @@ router.post('/signup', async (req: Request, res: Response) => {
     });
 
     // Return user data (without password) and token
+    // For own user, include email (includePII = true)
     res.status(201).json({
       token,
-      user: {
-        id: String(savedUser._id),
-        name: savedUser.name,
-        email: savedUser.email,
-        offer_skill: savedUser.offer_skill,
-        want_skill: savedUser.want_skill,
-        skill_level: savedUser.skill_level,
-      },
+      user: serializeUser(savedUser, true),
     });
   } catch (error: any) {
     console.error('❌ Signup error details:', {
@@ -175,16 +170,10 @@ router.post('/login', async (req: Request, res: Response) => {
     });
 
     // Return user data (without password) and token
+    // For own user, include email (includePII = true)
     res.json({
       token,
-      user: {
-        id: String(user._id),
-        name: user.name,
-        email: user.email,
-        offer_skill: user.offer_skill,
-        want_skill: user.want_skill,
-        skill_level: user.skill_level,
-      },
+      user: serializeUser(user, true),
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -218,7 +207,8 @@ router.get('/me', async (req: Request, res: Response) => {
       return;
     }
 
-    const user = await User.findById(decoded.userId).select('-password');
+    // Password is already excluded by schema (select: false), so just query normally
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       console.log('GET /me - User not found for ID:', decoded.userId);
@@ -228,15 +218,9 @@ router.get('/me', async (req: Request, res: Response) => {
 
     console.log('GET /me - Success for user:', user.email);
 
+    // For own user, include email (includePII = true)
     res.json({
-      user: {
-        id: String(user._id),
-        name: user.name,
-        email: user.email,
-        offer_skill: user.offer_skill,
-        want_skill: user.want_skill,
-        skill_level: user.skill_level,
-      },
+      user: serializeUser(user, true),
     });
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
